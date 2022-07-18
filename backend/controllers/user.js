@@ -1,17 +1,15 @@
 const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const jwt = require('jsonwebtoken');
-const cryptojs = require("crypto-js");
 require("dotenv").config();
 
 
 
 exports.signup = (req, res, next) => {
-    const emailCryptoJs = cryptojs.HmacSHA256(req.body.email, process.env.SECRET_CRYPTOJS).toString(cryptojs.enc.Base64);
     bcrypt.hash(req.body.password, 10)
     .then(hash => {
         const user = new User({
-            email: emailCryptoJs,
+            email: req.body.email,
             password: hash
         });
         user.save()
@@ -22,8 +20,7 @@ exports.signup = (req, res, next) => {
 };
 
 exports.login = (req, res, next) => {
-    const emailCryptoJs = cryptojs.HmacSHA256(req.body.email, process.env.SECRET_CRYPTOJS).toString(cryptojs.enc.Base64);
-    User.findOne({ email: emailCryptoJs })
+    User.findOne({ email: req.body.email })
         .then(user => {
             if (!user) {
                 return res.status(401).json({ error: 'Paire identifiant / Mot de passe incorrecte !' });
