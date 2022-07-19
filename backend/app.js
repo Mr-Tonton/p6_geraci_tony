@@ -37,7 +37,7 @@ app.use(express.json());
 app.use(mongoSanitize()); // against query selector injection attacks
 app.use(hpp()); // against http pollution attacks
 
-app.use('/images', express.static(path.join(__dirname, 'images')))
+app.use('/images', express.static(path.join(__dirname, 'images')));
 app.use("/api/auth", userRoutes);
 app.use("/api/sauces", sauceRoutes);
 

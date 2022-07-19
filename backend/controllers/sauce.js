@@ -3,62 +3,67 @@ const fs = require("fs");
 const jwt = require("jsonwebtoken");
 
 exports.getAllSauces = (req, res, next) => {
-    Sauce.find()
-        .then(sauces => res.status(200).json(sauces))
-        .catch(error => res.status(404).json({ error: error }));
+  Sauce.find()
+    .then(sauces => res.status(200).json(sauces))
+    .catch(error => res.status(404).json({ error: error }));
 };
 
 exports.getOneSauce = (req, res, next) => {
-    Sauce.findOne({ _id: req.params.id })
-    .then( sauce => res.status(200).json(sauce))
-    .catch( error => res.status(404).json({ error: error }));
+  Sauce.findOne({ _id: req.params.id })
+    .then(sauce => res.status(200).json(sauce))
+    .catch(error => res.status(404).json({ error: error }));
 };
 
 exports.createSauce = (req, res, next) => {
-    const sauceObject = JSON.parse(req.body.sauce);
-    delete sauceObject._id;
-    const sauce = new Sauce({
-        ...sauceObject,
-        imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
-    });
-    sauce.save()
+  const sauceObject = JSON.parse(req.body.sauce);
+  // console.log(sauceObject);
+  // console.log(req.body.sauce);
+  delete sauceObject._id;
+  const sauce = new Sauce({
+    ...sauceObject,
+    imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+  });
+  sauce.save()
     .then(() => res.status(201).json({ message: 'Sauce saved successfully!' }))
-    .catch( error => res.status(400).json({ error: error }));
+    .catch(error => res.status(400).json({ error: error }));
 };
 
 exports.updateSauce = (req, res, next) => {
   const token = req.headers.authorization.split(' ')[1];
-  const decodedToken = jwt.verify(token, process.env.SECRET_TOKEN);
-  const userId = decodedToken.userId;
+  const userId = jwt.verify(token, process.env.SECRET_TOKEN).userId;
+
   Sauce.findOne({ _id: req.params.id })
-    .then(sauce => {
-      if (sauce.userId == userId) {
-        // utilisateur qui a créé la sauce 
-        const saucesObject = req.file ?
-          {
-            ...req.body.sauce,
-            imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
-          } : { ...req.body };
-          Sauce.findOne({ _id: req.params.id})
-          .then(sauce => {
-              const filename = sauce.imageUrl.split('/images/')[1];
-              fs.unlink(`images/${filename}`, () => { 
-        Sauce.updateOne({ _id: req.params.id }, { ...saucesObject, _id: req.params.id })
-          .then(() => res.status(201).json({ message: 'Sauce modifiée !' }))
-          .catch(error => res.status(400).json({ message: error }))
-      });
-    }).catch(error => res.status(500).json({ message: error }))
-  }
-      else {
-        res.status(403).json({ message : "Seul l'utilisateur qui a créé la sauce peut la modifier !"})
-        .catch((error) => res.status(403).json({ message: error }));
-  }})
+  .then((sauce) => {
+    if (sauce.userId === userId) {
+      if (req.file) {
+        // si l'image est modifiée, il faut supprimer l'ancienne image dans le dossier /image
+            const filename = sauce.imageUrl.split('/images/')[1];
+            fs.unlink(`images/${filename}`, () => {
+              // une fois que l'ancienne image est supprimée dans le dossier /image, on peut mettre à jour le reste
+              const sauceObject = {
+                ...JSON.parse(req.body.sauce),
+                imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+              }
+              // console.log(req.body.sauce);
+              Sauce.updateOne({ _id: req.params.id }, { ...sauceObject, _id: req.params.id })
+                .then(() => res.status(200).json({ message: 'Sauce modifiée!' }))
+                .catch(error => res.status(400).json({ error }));
+            })
+      } else {
+        // si l'image n'est pas modifiée
+        const sauceObject = { ...req.body };
+        Sauce.updateOne({ _id: req.params.id }, { ...sauceObject, _id: req.params.id })
+          .then(() => res.status(200).json({ message: 'Sauce modifiée!' }))
+          .catch(error => res.status(400).json({ error }));
+      }
+    }
+  })
 };
 
 exports.deleteSauce = (req, res, next) => {
   const token = req.headers.authorization.split(' ')[1];
-  const decodedToken = jwt.verify(token, process.env.SECRET_TOKEN);
-  const userId = decodedToken.userId;
+  const userId = jwt.verify(token, process.env.SECRET_TOKEN).userId;
+  
   Sauce.findOne({ _id: req.params.id })
     .then(sauce => {
       if (sauce.userId == userId) {
@@ -75,7 +80,7 @@ exports.deleteSauce = (req, res, next) => {
       }
     })
     .catch(error => res.status(500).json({ message: error }));
-  }
+}
 
 exports.likeDislikeSauce = (req, res, next) => {
   let like = req.body.like;
