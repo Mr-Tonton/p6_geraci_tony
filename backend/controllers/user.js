@@ -4,7 +4,6 @@ const jwt = require('jsonwebtoken');
 require("dotenv").config();
 
 
-
 exports.signup = (req, res, next) => {
     bcrypt.hash(req.body.password, 10)
     .then(hash => {

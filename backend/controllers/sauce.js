@@ -1,6 +1,5 @@
 const Sauce = require('../models/Sauce');
 const fs = require("fs");
-const jwt = require("jsonwebtoken");
 
 exports.getAllSauces = (req, res, next) => {
   Sauce.find()
@@ -16,8 +15,6 @@ exports.getOneSauce = (req, res, next) => {
 
 exports.createSauce = (req, res, next) => {
   const sauceObject = JSON.parse(req.body.sauce);
-  // console.log(sauceObject);
-  // console.log(req.body.sauce);
   delete sauceObject._id;
   const sauce = new Sauce({
     ...sauceObject,
@@ -29,55 +26,41 @@ exports.createSauce = (req, res, next) => {
 };
 
 exports.updateSauce = (req, res, next) => {
-  const token = req.headers.authorization.split(' ')[1];
-  const userId = jwt.verify(token, process.env.SECRET_TOKEN).userId;
-
   Sauce.findOne({ _id: req.params.id })
   .then((sauce) => {
-    if (sauce.userId === userId) {
+      let sauceObject = { ...req.body };
       if (req.file) {
-        // si l'image est modifiée, il faut supprimer l'ancienne image dans le dossier /image
-            const filename = sauce.imageUrl.split('/images/')[1];
-            fs.unlink(`images/${filename}`, () => {
-              // une fois que l'ancienne image est supprimée dans le dossier /image, on peut mettre à jour le reste
-              const sauceObject = {
-                ...JSON.parse(req.body.sauce),
-                imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
-              }
-              // console.log(req.body.sauce);
-              Sauce.updateOne({ _id: req.params.id }, { ...sauceObject, _id: req.params.id })
-                .then(() => res.status(200).json({ message: 'Sauce modifiée!' }))
-                .catch(error => res.status(400).json({ error }));
-            })
-      } else {
-        // si l'image n'est pas modifiée
-        const sauceObject = { ...req.body };
-        Sauce.updateOne({ _id: req.params.id }, { ...sauceObject, _id: req.params.id })
-          .then(() => res.status(200).json({ message: 'Sauce modifiée!' }))
-          .catch(error => res.status(400).json({ error }));
+        const filename = sauce.imageUrl.split('/images/')[1];
+        sauceObject = {
+          ...JSON.parse(req.body.sauce),
+          imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+        }
+        fs.unlink(`images/${filename}`, (err) => {
+          if (err) console.log(err);
+          else {
+            console.log(`Deleted file from ./images: ${filename}`);
+          }
+        });
       }
-    }
-  })
+      Sauce.updateOne({ _id: req.params.id }, { ...sauceObject, _id: req.params.id })
+      .then(() => res.status(200).json({ message: 'Sauce modifiée!' }))
+      .catch(error => res.status(400).json({ error }));
+    })
 };
 
 exports.deleteSauce = (req, res, next) => {
-  const token = req.headers.authorization.split(' ')[1];
-  const userId = jwt.verify(token, process.env.SECRET_TOKEN).userId;
-  
   Sauce.findOne({ _id: req.params.id })
     .then(sauce => {
-      if (sauce.userId == userId) {
-        const filename = sauce.imageUrl.split('/images/')[1];
-        fs.unlink(`images/${filename}`, () => {
-          Sauce.deleteOne({ _id: req.params.id })
-            .then(() => res.status(200).json({ message: 'Sauce supprimée !' }))
-            .catch(error => res.status(400).json({ message: error }));
-        });
-      }
-      else {
-        res.status(403).json({ message: "Seul l'utilisateur qui a créé la sauce peut la supprimer" })
-          .catch((error) => res.status(403).json({ message: error }));
-      }
+      const filename = sauce.imageUrl.split('/images/')[1];
+      fs.unlink(`images/${filename}`, (err) => {
+        if (err) console.log(err);
+        else {
+          console.log(`Deleted file from ./images: ${filename}`);
+        }
+      });
+      Sauce.deleteOne({ _id: req.params.id })
+        .then(() => res.status(200).json({ message: 'Sauce supprimée !' }))
+        .catch(error => res.status(400).json({ message: error }));
     })
     .catch(error => res.status(500).json({ message: error }));
 }
@@ -86,11 +69,18 @@ exports.likeDislikeSauce = (req, res, next) => {
   let like = req.body.like;
   let userId = req.body.userId;
   let sauceId = req.params.id;
+  
   switch (like) {
     case 1:
-      Sauce.updateOne({ _id: sauceId }, { $push: { usersLiked: userId }, $inc: { likes: +1 } }) // On push sur l'array userLiked l'userId et on incrémente likes
-        .then(() => res.status(200).json({ message: `J'aime` }))
-        .catch((error) => res.status(400).json({ error }))
+      Sauce.findOne({ _id: sauceId })
+        .then((sauce) => {
+          if (!sauce.usersLiked.includes(userId)) {
+            Sauce.updateOne({ _id: sauceId }, { $push: { usersLiked: userId }, $inc: { likes: +1 } }) // On push sur l'array userLiked l'userId et on incrémente likes
+              .then(() => res.status(200).json({ message: `J'aime` }))
+              .catch((error) => res.status(400).json({ error }))
+          }
+        })
+        .catch((error) => { res.status(404).json({ error }) });
       break;
 
     case 0:
@@ -107,13 +97,19 @@ exports.likeDislikeSauce = (req, res, next) => {
               .catch((error) => res.status(400).json({ error }))
           }
         })
-        .catch((error) => { res.status(404).json({ error }); });
+        .catch((error) => { res.status(404).json({ error }) });
       break;
 
     case -1:
-      Sauce.updateOne({ _id: sauceId }, { $push: { usersDisliked: userId }, $inc: { dislikes: +1 } }) // On push sur l'array userLiked l'userId et on incrémente dislikes
-        .then(() => { res.status(200).json({ message: `Je n'aime pas` }) })
-        .catch((error) => res.status(400).json({ error }))
+      Sauce.findOne({ _id: sauceId })
+        .then((sauce) => {
+          if (!sauce.usersLiked.includes(userId)) {
+            Sauce.updateOne({ _id: sauceId }, { $push: { usersDisliked: userId }, $inc: { dislikes: +1 } }) // On push sur l'array userLiked l'userId et on incrémente dislikes
+              .then(() => { res.status(200).json({ message: `Je n'aime pas` }) })
+              .catch((error) => res.status(400).json({ error }))
+          }
+        })
+        .catch((error) => { res.status(404).json({ error }) });
       break;
     default:
       console.log(error);
