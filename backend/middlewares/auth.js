@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken'); // méthode standard pour l’échange de données sécurisées entre deux parties.
 require("dotenv").config();
 
 

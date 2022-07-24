@@ -1,5 +1,5 @@
 const User = require("../models/User");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcrypt"); // bibliothèque aidant à hacher les mots de passe
 const jwt = require('jsonwebtoken');
 require("dotenv").config();
 

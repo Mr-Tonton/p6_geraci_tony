@@ -1,4 +1,4 @@
-const http = require('http');
+const http = require('http'); // pour utiliser le serveur HTTP
 const app = require('./app');
 
 const normalizePort = val => {

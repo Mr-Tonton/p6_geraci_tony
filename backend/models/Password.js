@@ -1,4 +1,4 @@
-const passwordValidator = require("password-validator");
+const passwordValidator = require("password-validator"); // Valide le mot de passe selon des spécifications flexibles
 
 const passwordSchema = new passwordValidator();
 

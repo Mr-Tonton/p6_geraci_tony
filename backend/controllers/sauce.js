@@ -1,5 +1,5 @@
 const Sauce = require('../models/Sauce');
-const fs = require("fs");
+const fs = require("fs"); // module permet d'interagir avec le "file system"
 
 exports.getAllSauces = (req, res, next) => {
   Sauce.find()
